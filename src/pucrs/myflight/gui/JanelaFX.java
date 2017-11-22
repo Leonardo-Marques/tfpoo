@@ -30,6 +30,8 @@ import javafx.embed.swing.SwingNode;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -85,32 +87,35 @@ public class JanelaFX extends Application {
 		leftPane.setHgap(5);
 		leftPane.setVgap(5);
 		leftPane.setPadding(new Insets(5,5,5,5));	
-		
-		/**
-		 * Botoes/Fun�oes
-		 */
+
 		Button btnConsultaUm = new Button("Consulta Um");
 		Button btnClear = new Button("Clear");
 		Button btnConsultaDois = new Button("Consulta Dois");
-		Button btnInsereVoos = new Button("Insere Voos");
 		Button btnConsultaTres = new Button("Consulta Tr�s");
+		Button btnConsultaQuatro = new Button("Consulta Quatro");
 
 		leftPane.add(btnClear,0,0);
-		leftPane.add(btnInsereVoos,0,1);
 		leftPane.add(btnConsultaDois,0,3);
 		leftPane.add(btnConsultaUm, 0,2);
 		leftPane.add(btnConsultaTres,0,4);
+		leftPane.add(btnConsultaQuatro,0,5);
 		
 		btnConsultaUm.setOnAction(e -> {
+			Geo thisgeo = new Geo(gerenciador.getPosicao().getLatitude(), gerenciador.getPosicao().getLongitude());
+			consultaUm(thisgeo);
 
 		});
-//
-//		btnConsultaDois.setOnAction(e -> {
-//			consultaDois();
-//		});
+
+		btnConsultaDois.setOnAction(e -> {
+			Geo thisgeo = new Geo(gerenciador.getPosicao().getLatitude(), gerenciador.getPosicao().getLongitude());
+			consultaDois(thisgeo);
+		});
 
 		btnConsultaTres.setOnAction(e -> {
 			consultaTres();
+		});
+		btnClear.setOnAction(e -> {
+			 clear();
 		});
 
 	
@@ -200,30 +205,28 @@ public class JanelaFX extends Application {
 
 	private void consultaTres(){
         clear();
-        GeoPosition pos = gerenciador.getPosicao();
         List<MyWaypoint> lstPoints = new ArrayList<>();
         ArrayList<Tracado> trs = new ArrayList<Tracado>();
+
         final JDialog dialog = new JDialog();
         dialog.setAlwaysOnTop(true);
-        String s = JOptionPane.showInputDialog(dialog, "selecao KM:");
+        double s =Double.parseDouble(JOptionPane.showInputDialog(dialog, "Digite os KM: "));
+    //    String  s = JOptionPane.showInputDialog(dialog, "selecao KM:");
         String t = JOptionPane.showInputDialog(dialog, "COD. aeroporto: ");
-
+        
         for(Rota r : gerRotas.listarTodas()){
             Geo geo1 = null,geo2 = null;
-            if(r.getOrigem().getCodigo().equals(t)){
-                for(Aeroporto a : gerAero.listarTodos()){
-                    if(a.getLocal().getLatitude() < a.getLocal().getLongitude()){
-                        lstPoints.add(new MyWaypoint(Color.BLUE, r.getOrigem().getCodigo(), a.getLocal(), 3));
-                        geo1 = new Geo(a.getLocal().getLatitude(), a.getLocal().getLongitude());
-                    }
-                }
-                for(Aeroporto a : gerAero.listarTodos()){
-                    if(a.getCodigo().equals(r.getDestino().getCodigo())){
-                        lstPoints.add(new MyWaypoint(Color.BLUE, r.getDestino().getCodigo(), a.getLocal(), 3));
-                        geo2 = new Geo(a.getLocal().getLatitude(), a.getLocal().getLongitude());
-                    }
-                }
+            if(r.getOrigem().getCodigo().equals(t) ){
+            	if(r.getDestino().getLocal().distancia(r.getOrigem().getLocal()) < s ){
+                        lstPoints.add(new MyWaypoint(Color.RED, r.getOrigem().getCodigo(), r.getOrigem().getLocal(), 3));
+                        lstPoints.add(new MyWaypoint(Color.cyan, r.getDestino().getCodigo(), r.getDestino().getLocal(), 3));
+                        geo1 = new Geo(r.getOrigem().getLocal().getLatitude(), r.getOrigem().getLocal().getLongitude());    
+
+                        geo2 = new Geo(r.getDestino().getLocal().getLatitude(), r.getDestino().getLocal().getLongitude());
+            	
+           
                 trs.add(new Tracado(geo1,geo2));
+         	  }
             }
         }
         refresh(lstPoints,trs);
@@ -245,6 +248,8 @@ public class JanelaFX extends Application {
             for (Aeroporto b : gerAero.listarTodos()){
                 if (a.getPais().getNome().equals(b.getPais().getNome())){
                     lstPoints.add(new MyWaypoint(Color.red, b.getNome(), b.getLocal(), 3));
+                    System.out.println("ok" +  b.getNome());
+                   
 
                 }
             }
@@ -271,9 +276,12 @@ public class JanelaFX extends Application {
             for (Rota r : gerRotas.listarTodas()) {
                 if (r.getOrigem().getPais().getNome().equals(a.getPais().getNome())) {
                     //pt origem
+                	tr.addPonto(r.getOrigem().getLocal());
+                	tr.addPonto(r.getDestino().getLocal());
                     lstPoints.add(new MyWaypoint(Color.red, r.getOrigem().getNome(), r.getOrigem().getLocal(), 3));
                     //pt destino
                     lstPoints.add(new MyWaypoint(Color.red, r.getDestino().getNome(), r.getDestino().getLocal(), 3));
+                   gerenciador.addTracado(tr);
                 }
 
                 geo1 = new Geo(r.getOrigem().getLocal().getLatitude(), r.getDestino().getLocal().getLongitude());
@@ -282,7 +290,10 @@ public class JanelaFX extends Application {
 
             }
             trs.add(new Tracado(geo1,geo2));
-            refresh(lstPoints, trs);
+            gerenciador.setPontos(lstPoints);
+            gerenciador.getMapKit().repaint();  
+            
+           // refresh(lstPoints, trs);
         }
         else {
             System.out.println("Nao existe aeroporto proximo ao mouse");
@@ -291,7 +302,7 @@ public class JanelaFX extends Application {
 
 	private Aeroporto validaprox (Geo x) {
         for (Aeroporto r : gerAero.listarTodos()) {
-            if (r.getLocal().distancia(x) < 5) {
+            if (r.getLocal().distancia(x) < 100) {
                 return r;
 
             }
@@ -310,19 +321,33 @@ public class JanelaFX extends Application {
 		public void mousePressed(MouseEvent e) {
 			JXMapViewer mapa = gerenciador.getMapKit().getMainMap();
 			GeoPosition loc = mapa.convertPointToGeoPosition(e.getPoint());
-			Geo c1 = new Geo (mapa.convertPointToGeoPosition(e.getPoint()).getLatitude(),
-					mapa.convertPointToGeoPosition(e.getPoint()).getLongitude());
-            consultaUm(c1);
-            //
-           // consultaDois(c1);
+			// System.out.println(loc.getLatitude()+", "+loc.getLongitude());
+			lastButton = e.getButton();
+			// Botão 3: seleciona localização
+			if (lastButton == MouseEvent.BUTTON3) {
+				gerenciador.setPosicao(loc);				
+				gerenciador.getMapKit().repaint();
+			}
+		}
 
+		
+//		@Override
+//		public void mousePressed(MouseEvent e) {
+//			JXMapViewer mapa = gerenciador.getMapKit().getMainMap();
+//			GeoPosition loc = mapa.convertPointToGeoPosition(e.getPoint());
+//			Geo c1 = new Geo (mapa.convertPointToGeoPosition(e.getPoint()).getLatitude(),
+//				//	mapa.convertPointToGeoPosition(e.getPoint()).getLongitude());
+//              // consultaUm(c1);
+//            //
+//         //   consultaDois(c1);
+//
 //			lastButton = e.getButton();
 //			// Botão 3: seleciona localização
 //			if (lastButton == MouseEvent.BUTTON3) {
 //				gerenciador.setPosicao(loc);
 //				gerenciador.getMapKit().repaint();
 //			}
-		}
+//		}
 	}
 	
 	private void createSwingContent(final SwingNode swingNode) {
